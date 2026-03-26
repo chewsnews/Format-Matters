@@ -585,31 +585,7 @@ function drawMap(world, isZoomed, activeConfed) {
       return c === activeConfed ? 0.55 : 0.1;
     });
 
-  // Manual pins for territories missing from dataset
-  const pins = [
-    { name: 'Kosovo',        coords: [20.9, 42.6], confed: 'uefa'     },
-    { name: 'French Guiana', coords: [-53.1, 3.9], confed: 'concacaf' },
-  ];
-  pins.forEach(({ name, coords, confed }) => {
-    const pt = projFn(coords);
-    if (!pt) return;
-    const g = svgSel.append('g').attr('transform', `translate(${pt[0]},${pt[1]})`).style('pointer-events', 'none');
-    g.append('circle')
-      .attr('r', isZoomed ? 5 : 3.5)
-      .attr('fill', COLORS[confed])
-      .attr('stroke', '#0c0c0c')
-      .attr('stroke-width', 1)
-      .style('opacity', 0.9);
-    if (isZoomed) {
-      g.append('text')
-        .attr('x', 8).attr('y', 4)
-        .attr('fill', COLORS[confed])
-        .style('font-size', '9px')
-        .style('font-family', 'DM Sans, sans-serif')
-        .style('letter-spacing', '0.04em')
-        .text(name);
-    }
-  });
+
 
   if (!isZoomed) {
     // WORLD VIEW — hover highlights whole confederation, click = panel, dblclick = zoom
