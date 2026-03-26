@@ -610,6 +610,9 @@ function drawMap(world, isZoomed, activeConfed) {
         .text(name);
     }
   });
+
+  if (!isZoomed) {
+    // WORLD VIEW — hover highlights whole confederation, click = panel, dblclick = zoom
     let clickTimer = null;
     paths
       .on('mouseover', function(event, d) {
