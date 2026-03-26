@@ -411,10 +411,56 @@ function select(id) {
   document.getElementById('detail-side').scrollTop = 0;
 }
 
+// ── NUMERIC ID LOOKUP (world-atlas uses UN M49 numeric codes) ─────────
+const NUMERIC = {
+  8:'uefa',20:'uefa',51:'uefa',40:'uefa',31:'uefa',112:'uefa',56:'uefa',70:'uefa',
+  100:'uefa',191:'uefa',196:'uefa',203:'uefa',208:'uefa',233:'uefa',234:'uefa',
+  246:'uefa',250:'uefa',268:'uefa',276:'uefa',292:'uefa',300:'uefa',348:'uefa',
+  352:'uefa',372:'uefa',380:'uefa',383:'uefa',428:'uefa',438:'uefa',440:'uefa',
+  442:'uefa',470:'uefa',498:'uefa',499:'uefa',528:'uefa',807:'uefa',578:'uefa',
+  616:'uefa',620:'uefa',642:'uefa',643:'uefa',674:'uefa',688:'uefa',703:'uefa',
+  705:'uefa',724:'uefa',752:'uefa',756:'uefa',792:'uefa',804:'uefa',826:'uefa',
+  // CONCACAF
+  28:'concacaf',44:'concacaf',52:'concacaf',84:'concacaf',124:'concacaf',
+  188:'concacaf',192:'concacaf',212:'concacaf',214:'concacaf',222:'concacaf',
+  308:'concacaf',320:'concacaf',332:'concacaf',340:'concacaf',388:'concacaf',
+  484:'concacaf',558:'concacaf',591:'concacaf',630:'concacaf',659:'concacaf',
+  662:'concacaf',670:'concacaf',740:'concacaf',780:'concacaf',840:'concacaf',
+  304:'concacaf',60:'concacaf',136:'concacaf',92:'concacaf',796:'concacaf',
+  531:'concacaf',533:'concacaf',
+  // CONMEBOL
+  32:'conmebol',68:'conmebol',76:'conmebol',152:'conmebol',170:'conmebol',
+  218:'conmebol',600:'conmebol',604:'conmebol',858:'conmebol',862:'conmebol',
+  // CAF
+  12:'caf',24:'caf',204:'caf',72:'caf',854:'caf',108:'caf',132:'caf',
+  120:'caf',140:'caf',148:'caf',174:'caf',180:'caf',178:'caf',384:'caf',
+  262:'caf',818:'caf',226:'caf',232:'caf',748:'caf',231:'caf',266:'caf',
+  270:'caf',288:'caf',324:'caf',624:'caf',404:'caf',426:'caf',430:'caf',
+  434:'caf',450:'caf',454:'caf',466:'caf',478:'caf',480:'caf',504:'caf',
+  508:'caf',516:'caf',562:'caf',566:'caf',646:'caf',678:'caf',686:'caf',
+  694:'caf',706:'caf',710:'caf',728:'caf',736:'caf',834:'caf',768:'caf',
+  788:'caf',800:'caf',894:'caf',716:'caf',732:'caf',
+  // AFC
+  4:'afc',48:'afc',50:'afc',64:'afc',96:'afc',116:'afc',156:'afc',
+  356:'afc',360:'afc',364:'afc',368:'afc',392:'afc',400:'afc',398:'afc',
+  414:'afc',417:'afc',418:'afc',422:'afc',458:'afc',462:'afc',496:'afc',
+  104:'afc',524:'afc',408:'afc',512:'afc',586:'afc',275:'afc',608:'afc',
+  634:'afc',682:'afc',702:'afc',410:'afc',144:'afc',760:'afc',158:'afc',
+  762:'afc',764:'afc',626:'afc',795:'afc',784:'afc',860:'afc',704:'afc',
+  887:'afc',376:'afc',344:'afc',446:'afc',
+  // OFC
+  36:'ofc',554:'ofc',598:'ofc',242:'ofc',90:'ofc',548:'ofc',882:'ofc',
+  776:'ofc',798:'ofc',583:'ofc',584:'ofc',585:'ofc',520:'ofc',316:'ofc',
+  580:'ofc',184:'ofc',570:'ofc',772:'ofc',876:'ofc',258:'ofc',16:'ofc',
+};
+
 // ── MAP ───────────────────────────────────────────────────────────────
 function getConfed(d) {
-  // Natural Earth uses ISO_A3; fallback to numeric id mapping
-  const iso = (d.properties && (d.properties.ISO_A3 || d.properties.iso_a3)) || '';
+  // world-atlas countries-110m uses numeric UN M49 ids
+  const numId = d.id ? parseInt(d.id) : null;
+  if (numId && NUMERIC[numId]) return NUMERIC[numId];
+  // fallback: try ISO string properties
+  const iso = (d.properties && (d.properties.ISO_A3 || d.properties.iso_a3 || d.properties.ADM0_A3)) || '';
   return CONFED[iso] || null;
 }
 
