@@ -113,7 +113,23 @@ header {
   pointer-events: none;
 }
 
-/* loading / error */
+/* zoom state */
+#zoom-hint {
+  font-size: 10px; color: var(--text3); letter-spacing: .07em;
+  text-transform: uppercase; flex-shrink: 0; min-height: 16px;
+  transition: opacity .2s;
+}
+#back-btn {
+  display: none; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text2); cursor: pointer;
+  background: none; border: none; padding: 0;
+  transition: color .15s; flex-shrink: 0;
+}
+#back-btn:hover { color: var(--text); }
+#back-btn.visible { display: flex; }
+.back-arrow { font-size: 14px; color: var(--accent); }
+.map-top { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+
 #map-loading {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
@@ -230,7 +246,10 @@ header {
 
 <div class="layout">
   <div id="map-side">
-    <div class="map-hint">Click a country or confederation to explore</div>
+    <div class="map-top">
+      <div id="zoom-hint" class="map-hint">Click a confederation · Double-click to zoom in</div>
+      <button id="back-btn" onclick="zoomOut()"><span class="back-arrow">←</span> World view</button>
+    </div>
     <div id="map-wrap">
       <div id="map-loading"><div class="spinner"></div>Loading map…</div>
       <div id="map-error">
@@ -427,29 +446,29 @@ const NUMERIC = {
   484:'concacaf',558:'concacaf',591:'concacaf',630:'concacaf',659:'concacaf',
   662:'concacaf',670:'concacaf',740:'concacaf',780:'concacaf',840:'concacaf',
   304:'concacaf',60:'concacaf',136:'concacaf',92:'concacaf',796:'concacaf',
-  531:'concacaf',533:'concacaf',
+  531:'concacaf',533:'concacaf',328:'concacaf',254:'concacaf',
   // CONMEBOL
   32:'conmebol',68:'conmebol',76:'conmebol',152:'conmebol',170:'conmebol',
   218:'conmebol',600:'conmebol',604:'conmebol',858:'conmebol',862:'conmebol',
-  // CAF
+  // CAF — add Sudan (729 = South Sudan already there, 736 = Sudan), Somalia (706)
   12:'caf',24:'caf',204:'caf',72:'caf',854:'caf',108:'caf',132:'caf',
   120:'caf',140:'caf',148:'caf',174:'caf',180:'caf',178:'caf',384:'caf',
   262:'caf',818:'caf',226:'caf',232:'caf',748:'caf',231:'caf',266:'caf',
   270:'caf',288:'caf',324:'caf',624:'caf',404:'caf',426:'caf',430:'caf',
   434:'caf',450:'caf',454:'caf',466:'caf',478:'caf',480:'caf',504:'caf',
   508:'caf',516:'caf',562:'caf',566:'caf',646:'caf',678:'caf',686:'caf',
-  694:'caf',706:'caf',710:'caf',728:'caf',736:'caf',834:'caf',768:'caf',
+  694:'caf',706:'caf',710:'caf',728:'caf',729:'caf',736:'caf',834:'caf',768:'caf',
   788:'caf',800:'caf',894:'caf',716:'caf',732:'caf',
-  // AFC
+  // AFC — move Australia (36) to AFC
   4:'afc',48:'afc',50:'afc',64:'afc',96:'afc',116:'afc',156:'afc',
   356:'afc',360:'afc',364:'afc',368:'afc',392:'afc',400:'afc',398:'afc',
   414:'afc',417:'afc',418:'afc',422:'afc',458:'afc',462:'afc',496:'afc',
   104:'afc',524:'afc',408:'afc',512:'afc',586:'afc',275:'afc',608:'afc',
   634:'afc',682:'afc',702:'afc',410:'afc',144:'afc',760:'afc',158:'afc',
   762:'afc',764:'afc',626:'afc',795:'afc',784:'afc',860:'afc',704:'afc',
-  887:'afc',376:'afc',344:'afc',446:'afc',
-  // OFC
-  36:'ofc',554:'ofc',598:'ofc',242:'ofc',90:'ofc',548:'ofc',882:'ofc',
+  887:'afc',376:'afc',344:'afc',446:'afc',36:'afc',
+  // OFC — remove Australia (36), keep rest
+  554:'ofc',598:'ofc',242:'ofc',90:'ofc',548:'ofc',882:'ofc',
   776:'ofc',798:'ofc',583:'ofc',584:'ofc',585:'ofc',520:'ofc',316:'ofc',
   580:'ofc',184:'ofc',570:'ofc',772:'ofc',876:'ofc',258:'ofc',16:'ofc',
 };
@@ -464,58 +483,158 @@ function getConfed(d) {
   return CONFED[iso] || null;
 }
 
+// ── ZOOM BOUNDS per confederation (lon1, lat1, lon2, lat2) ────────────
+const CONFED_BOUNDS = {
+  uefa:     { lon1: -25, lat1:  34, lon2:  45, lat2:  72 },
+  concacaf: { lon1:-170, lat1:   7, lon2: -52, lat2:  84 },
+  conmebol: { lon1: -82, lat1: -56, lon2: -34, lat2:  13 },
+  caf:      { lon1: -18, lat1: -35, lon2:  52, lat2:  38 },
+  afc:      { lon1:  26, lat1: -12, lon2: 146, lat2:  55 },
+  ofc:      { lon1: 130, lat1: -48, lon2:-175, lat2:  -2 },
+};
+
+let zoomed = false;
+let worldCache = null;
+let svgSel, pathFn, projFn, W, H;
+
 function buildMap(world) {
+  worldCache = world;
   document.getElementById('map-loading').classList.add('gone');
   const wrap = document.getElementById('map-wrap');
-  const W = Math.max(wrap.clientWidth,  wrap.offsetWidth,  500);
-  const H = Math.max(wrap.clientHeight, wrap.offsetHeight, 400);
-  const svg = d3.select('#map-svg').attr('viewBox', `0 0 ${W} ${H}`);
-  svg.selectAll('*').remove();
+  W = Math.max(wrap.clientWidth,  wrap.offsetWidth,  500);
+  H = Math.max(wrap.clientHeight, wrap.offsetHeight, 400);
+  svgSel = d3.select('#map-svg').attr('viewBox', `0 0 ${W} ${H}`);
+  renderWorld();
+}
 
-  const proj = d3.geoNaturalEarth1().scale(W / 6.3).translate([W / 2, H / 2]);
-  const path = d3.geoPath().projection(proj);
+function renderWorld() {
+  zoomed = false;
+  document.getElementById('back-btn').classList.remove('visible');
+  document.getElementById('zoom-hint').textContent = 'Click a confederation · Double-click to zoom in';
+  document.querySelectorAll('.leg').forEach(l => l.classList.remove('active'));
+
+  projFn = d3.geoNaturalEarth1().scale(W / 6.3).translate([W / 2, H / 2]);
+  pathFn = d3.geoPath().projection(projFn);
+  drawMap(worldCache, false);
+}
+
+function renderZoomed(confedId) {
+  zoomed = true;
+  document.getElementById('back-btn').classList.add('visible');
+  document.getElementById('zoom-hint').textContent = 'Hover over a country · Click to explore';
+
+  const b = CONFED_BOUNDS[confedId];
+  // fit projection to bounding box
+  const pad = 30;
+  const cx = (b.lon1 + b.lon2) / 2;
+  const cy = (b.lat1 + b.lat2) / 2;
+  const dLon = Math.abs(b.lon2 - b.lon1);
+  const dLat = Math.abs(b.lat2 - b.lat1);
+  const scale = Math.min((W - pad * 2) / (dLon * (Math.PI / 180) * 6371 * Math.cos(cy * Math.PI / 180) / 111),
+                         (H - pad * 2) / (dLat * 111 / 111)) * 60;
+  // simpler: use fitSize
+  const bb = [[b.lon1, b.lat1], [b.lon2, b.lat2]];
+  const geoBox = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [[
+    [b.lon1, b.lat1],[b.lon2, b.lat1],[b.lon2, b.lat2],[b.lon1, b.lat2],[b.lon1, b.lat1]
+  ]]}, properties: {} };
+
+  projFn = d3.geoNaturalEarth1().fitExtent([[pad, pad],[W - pad, H - pad]], geoBox);
+  pathFn = d3.geoPath().projection(projFn);
+  drawMap(worldCache, true, confedId);
+}
+
+function drawMap(world, isZoomed, activeConfed) {
+  svgSel.selectAll('*').remove();
 
   // Ocean
-  svg.append('rect').attr('width', W).attr('height', H).attr('fill', '#091018');
+  svgSel.append('rect').attr('width', W).attr('height', H).attr('fill', '#091018');
 
   // Graticule
-  svg.append('path').datum(d3.geoGraticule()()).attr('class', 'graticule').attr('d', path);
+  svgSel.append('path').datum(d3.geoGraticule()()).attr('class', 'graticule').attr('d', pathFn);
 
   // Equator
-  svg.append('path')
+  svgSel.append('path')
     .datum({ type: 'LineString', coordinates: d3.range(-180, 181).map(d => [d, 0]) })
-    .attr('class', 'equator').attr('d', path);
+    .attr('class', 'equator').attr('d', pathFn);
 
-  // Ocean labels
-  [
-    { t: 'Pacific Ocean',   c: [-150,  5] },
-    { t: 'Atlantic Ocean',  c: [ -30,  5] },
-    { t: 'Indian Ocean',    c: [  75,-25] },
-    { t: 'Arctic Ocean',    c: [  20, 82] },
-    { t: 'Southern Ocean',  c: [  20,-62] },
-  ].forEach(({ t, c }) => {
-    const pt = proj(c);
-    if (pt) svg.append('text').attr('class', 'ocean-lbl').attr('x', pt[0]).attr('y', pt[1]).text(t);
-  });
+  // Ocean labels (world view only)
+  if (!isZoomed) {
+    [
+      { t: 'Pacific Ocean',   c: [-150,  5] },
+      { t: 'Atlantic Ocean',  c: [ -30,  5] },
+      { t: 'Indian Ocean',    c: [  75,-25] },
+      { t: 'Arctic Ocean',    c: [  20, 82] },
+      { t: 'Southern Ocean',  c: [  20,-62] },
+    ].forEach(({ t, c }) => {
+      const pt = projFn(c);
+      if (pt) svgSel.append('text').attr('class', 'ocean-lbl').attr('x', pt[0]).attr('y', pt[1]).text(t);
+    });
+  }
 
   // Countries
   const features = topojson.feature(world, world.objects.countries).features;
-  svg.selectAll('.country')
+  const paths = svgSel.selectAll('.country')
     .data(features)
     .join('path')
-    .attr('class', d => {
+    .attr('class', d => `country c-${getConfed(d) || 'none'}`)
+    .attr('d', pathFn)
+    .style('fill', d => { const c = getConfed(d); return c ? COLORS[c] : '#252525'; })
+    .style('opacity', d => {
+      if (!isZoomed) return 0.48;
       const c = getConfed(d);
-      return `country c-${c || 'none'}`;
-    })
-    .attr('d', path)
-    .style('fill', d => {
-      const c = getConfed(d);
-      return c ? COLORS[c] : '#252525';
-    })
-    .on('click', (event, d) => {
-      const c = getConfed(d);
-      if (c) select(c);
+      return c === activeConfed ? 0.55 : 0.1;
     });
+
+  if (!isZoomed) {
+    // WORLD VIEW — hover highlights whole confederation, click = panel, dblclick = zoom
+    let clickTimer = null;
+    paths
+      .on('mouseover', function(event, d) {
+        const c = getConfed(d);
+        if (!c) return;
+        svgSel.selectAll('.country').style('opacity', dd => {
+          const dc = getConfed(dd);
+          return dc === c ? 0.88 : (dc ? 0.2 : 0.1);
+        });
+      })
+      .on('mouseout', function() {
+        svgSel.selectAll('.country').style('opacity', 0.48);
+      })
+      .on('click', function(event, d) {
+        const c = getConfed(d);
+        if (!c) return;
+        // debounce: wait to see if this becomes a dblclick
+        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; return; }
+        clickTimer = setTimeout(() => { clickTimer = null; select(c); }, 220);
+      })
+      .on('dblclick', function(event, d) {
+        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+        const c = getConfed(d);
+        if (!c) return;
+        select(c);
+        renderZoomed(c);
+      });
+  } else {
+    // ZOOMED VIEW — hover highlights individual country, click = panel for that confed
+    paths
+      .on('mouseover', function(event, d) {
+        const c = getConfed(d);
+        if (c !== activeConfed) return;
+        d3.select(this).style('opacity', 1);
+      })
+      .on('mouseout', function(event, d) {
+        const c = getConfed(d);
+        d3.select(this).style('opacity', c === activeConfed ? 0.55 : 0.1);
+      })
+      .on('click', function(event, d) {
+        const c = getConfed(d);
+        if (c) select(c);
+      });
+  }
+}
+
+function zoomOut() {
+  renderWorld();
 }
 
 // ── LOAD ──────────────────────────────────────────────────────────────
@@ -531,8 +650,12 @@ let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    d3.json('countries-110m.json')
-      .then(buildMap).catch(() => {});
+    if (!worldCache) return;
+    const wrap = document.getElementById('map-wrap');
+    W = Math.max(wrap.clientWidth, wrap.offsetWidth, 500);
+    H = Math.max(wrap.clientHeight, wrap.offsetHeight, 400);
+    svgSel.attr('viewBox', `0 0 ${W} ${H}`);
+    zoomed ? renderZoomed(current) : renderWorld();
   }, 250);
 });
 </script>
