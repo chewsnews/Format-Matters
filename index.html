@@ -514,7 +514,6 @@ function buildMap(world) {
     })
     .on('click', (event, d) => {
       const c = getConfed(d);
-      console.log('clicked country:', d.properties && d.properties.ISO_A3, '→ confed:', c);
       if (c) select(c);
     });
 }
