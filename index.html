@@ -488,7 +488,7 @@ const ISO_FROM_NAME = {
   'Ethiopia':'ETH','Morocco':'MAR','Algeria':'DZA','Sudan':'SDN',
   'Japan':'JPN','South Korea':'KOR','North Korea':'PRK',
   'Indonesia':'IDN','Pakistan':'PAK','Bangladesh':'BGD',
-  'Kosovo':'XKX','French Guiana':'GUF','Guyana':'GUY',
+  'Kosovo':'XKX','French Guiana':'GUF','Fr. Guiana':'GUF','Guyane':'GUF','Guyana':'GUY',
   'Suriname':'SUR','Venezuela':'VEN','Colombia':'COL','Peru':'PER',
   'Chile':'CHL','Bolivia':'BOL','Paraguay':'PRY','Uruguay':'URY',
   'Ecuador':'ECU','Iceland':'ISL','Ireland':'IRL','Belgium':'BEL',
@@ -506,15 +506,18 @@ const ISO_FROM_NAME = {
 function getConfed(d) {
   if (!d.properties) return null;
   const p = d.properties;
-  // Try multiple ISO property names in order of reliability
+  // Try ISO codes first
   const isos = [p.ISO_A3, p.ISO_A3_EH, p.ADM0_A3, p.ADM0_A3_US, p.iso_a3, p.adm0_a3];
   for (const iso of isos) {
     if (iso && iso !== '-99' && CONFED[iso]) return CONFED[iso];
   }
-  // Fallback: match by country name
-  const name = p.SOVEREIGNT || p.NAME || p.name || '';
+  // Try territory/country name before sovereign (so French Guiana matches before France)
+  const name = p.NAME_EN || p.NAME || p.name || '';
   if (name && ISO_FROM_NAME[name] && CONFED[ISO_FROM_NAME[name]]) return CONFED[ISO_FROM_NAME[name]];
-  // Fallback: numeric ID
+  // Try sovereign as last resort
+  const sov = p.SOVEREIGNT || p.sovereignt || '';
+  if (sov && ISO_FROM_NAME[sov] && CONFED[ISO_FROM_NAME[sov]]) return CONFED[ISO_FROM_NAME[sov]];
+  // Numeric ID fallback
   const numId = d.id ? parseInt(d.id) : null;
   if (numId && NUMERIC[numId]) return NUMERIC[numId];
   return null;
