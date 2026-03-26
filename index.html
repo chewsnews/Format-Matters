@@ -474,15 +474,47 @@ const NUMERIC = {
 };
 
 // ── MAP ───────────────────────────────────────────────────────────────
-function getConfed(d) {
+// Name fallback for countries where ISO_A3 = -99 in Natural Earth
+const ISO_FROM_NAME = {
+  'France':'FRA','Norway':'NOR','Finland':'FIN','Sweden':'SWE',
+  'Denmark':'DNK','Netherlands':'NLD','United Kingdom':'GBR',
+  'United States of America':'USA','United States':'USA',
+  'Russia':'RUS','China':'CHN','India':'IND','Brazil':'BRA',
+  'Australia':'AUS','New Zealand':'NZL','Argentina':'ARG',
+  'Canada':'CAN','Mexico':'MEX','Spain':'ESP','Portugal':'PRT',
+  'Italy':'ITA','Germany':'DEU','Poland':'POL','Ukraine':'UKR',
+  'Turkey':'TUR','Saudi Arabia':'SAU','Iran':'IRN','Iraq':'IRQ',
+  'Egypt':'EGY','Nigeria':'NGA','South Africa':'ZAF','Kenya':'KEN',
+  'Ethiopia':'ETH','Morocco':'MAR','Algeria':'DZA','Sudan':'SDN',
+  'Japan':'JPN','South Korea':'KOR','North Korea':'PRK',
+  'Indonesia':'IDN','Pakistan':'PAK','Bangladesh':'BGD',
+  'Kosovo':'XKX','French Guiana':'GUF','Guyana':'GUY',
+  'Suriname':'SUR','Venezuela':'VEN','Colombia':'COL','Peru':'PER',
+  'Chile':'CHL','Bolivia':'BOL','Paraguay':'PRY','Uruguay':'URY',
+  'Ecuador':'ECU','Iceland':'ISL','Ireland':'IRL','Belgium':'BEL',
+  'Switzerland':'CHE','Austria':'AUT','Czech Republic':'CZE',
+  'Czechia':'CZE','Hungary':'HUN','Romania':'ROU','Serbia':'SRB',
+  'Croatia':'HRV','Slovakia':'SVK','Slovenia':'SVN','Greece':'GRC',
+  'Bulgaria':'BGR','Belarus':'BLR','Azerbaijan':'AZE','Armenia':'ARM',
+  'Georgia':'GEO','Moldova':'MDA','Montenegro':'MNE','Albania':'ALB',
+  'North Macedonia':'MKD','Bosnia and Herzegovina':'BIH',
+  'Luxembourg':'LUX','Malta':'MLT','Cyprus':'CYP','Estonia':'EST',
+  'Latvia':'LVA','Lithuania':'LTU','Liechtenstein':'LIE',
+  'Andorra':'AND','San Marino':'SMR','Faroe Islands':'FRO',
+};
+
+
   if (!d.properties) return null;
-  // Natural Earth GeoJSON uses ISO_A3 and ISO_A3_EH
-  const iso = d.properties.ISO_A3
-    || d.properties.ISO_A3_EH
-    || d.properties.ADM0_A3
-    || d.properties.iso_a3
-    || '';
-  if (iso && CONFED[iso]) return CONFED[iso];
+  const p = d.properties;
+  // Try multiple property names in order of reliability
+  const candidates = [
+    p.ISO_A3, p.ISO_A3_EH, p.ADM0_A3, p.ADM0_A3_US,
+    p.iso_a3, p.adm0_a3, p.SOVEREIGNT && ISO_FROM_NAME[p.SOVEREIGNT],
+    p.NAME && ISO_FROM_NAME[p.NAME],
+  ];
+  for (const iso of candidates) {
+    if (iso && iso !== '-99' && CONFED[iso]) return CONFED[iso];
+  }
   // fallback to numeric for world-atlas compatibility
   const numId = d.id ? parseInt(d.id) : null;
   if (numId && NUMERIC[numId]) return NUMERIC[numId];
